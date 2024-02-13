@@ -1,0 +1,34 @@
+rules:
+  - name: "example_daily_hot_sweep"
+    direction: "trading_to_cold_custody"
+    description: "Transfer from trading to cold custody at specified time"
+    schedule: "0 0 20 * * 1-5"
+    wallets:
+      - "ExampleBtcWalletName1"
+  - name: "example_frequent_hot_sweep"
+    direction: "trading_to_cold_custody"
+    description: "Transfer from trading to cold custody at regular cadence"
+    schedule: "*/30 * * * * *"
+    wallets:
+      - "ExampleBtcWalletName1"
+      - "ExampleEthWalletName1"
+  - name: "example_daily_cold_sweep"
+    direction: "cold_custody_to_trading"
+    description: "Transfer from cold custody to trading at specified time"
+    schedule: "0 0 4 * * 1-5"
+    wallets:
+      - "ExampleBtcWalletName1"
+
+wallets:
+  - name: "ExampleBtcWalletName1"
+    asset: "BTC"
+    description: "optional wallet description"
+    type: "cold_custody"
+    cold-wallet-id: "wallet_uuid"
+  - name: "ExampleEthWalletName1"
+    asset: "ETH"
+    description: "optional wallet description"
+    type: "cold_custody"
+    cold-wallet-id: "wallet_uuid"
+daemon:
+  timeoutDuration: 7
