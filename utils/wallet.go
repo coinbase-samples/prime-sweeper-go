@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"github.com/coinbase-samples/prime-sdk-go"
+	"github.com/coinbase-samples/prime-sweeper-go/model"
 	"go.uber.org/zap"
 	"strconv"
 )
@@ -22,7 +23,7 @@ type Balance struct {
 	WithdrawableAmount float64 `json:"withdrawable_amount"`
 }
 
-func CollectTradingWallets(log *zap.Logger, config *Config) (map[string]WalletResponse, error) {
+func CollectTradingWallets(log *zap.Logger, config *model.Config) (map[string]WalletResponse, error) {
 	client, err := GetClientFromEnv(log)
 	if err != nil {
 		log.Error("cannot get client from environment", zap.Error(err))
@@ -71,7 +72,7 @@ func CollectTradingWallets(log *zap.Logger, config *Config) (map[string]WalletRe
 	return tradingWallets, nil
 }
 
-func CollectWalletBalances(log *zap.Logger, config *Config, walletIds []string) (map[string]*Balance, error) {
+func CollectWalletBalances(log *zap.Logger, config *model.Config, walletIds []string) (map[string]*Balance, error) {
 	nonEmptyWallets := make(map[string]*Balance)
 
 	client, err := GetClientFromEnv(log)
@@ -79,16 +80,15 @@ func CollectWalletBalances(log *zap.Logger, config *Config, walletIds []string) 
 		return nil, fmt.Errorf("cannot get client from environment: %w", err)
 	}
 
-	ctx, cancel := GetContextWithTimeout(config)
-	defer cancel()
-
 	for _, walletId := range walletIds {
+		ctx, cancel := GetContextWithTimeout(config)
 		request := &prime.GetWalletBalanceRequest{
 			PortfolioId: client.Credentials.PortfolioId,
 			Id:          walletId,
 		}
 
 		response, err := client.GetWalletBalance(ctx, request)
+		cancel()
 		if err != nil {
 			return nil, fmt.Errorf("could not get balance for wallet ID %s: %v", walletId, err)
 		}
@@ -111,7 +111,7 @@ func CollectWalletBalances(log *zap.Logger, config *Config, walletIds []string) 
 	return nonEmptyWallets, nil
 }
 
-func GetAssetsForRule(rule Rule, config *Config) []string {
+func GetAssetsForRule(rule model.Rule, config *model.Config) []string {
 	var assets []string
 	for _, walletName := range rule.Wallets {
 		for _, wallet := range config.Wallets {
@@ -135,7 +135,7 @@ func FilterHotWalletsByAssets(assets []string, tradingWallets map[string]WalletR
 	return filteredWalletIds
 }
 
-func FilterWalletsByName(walletNames []string, config *Config) []string {
+func FilterWalletsByName(walletNames []string, config *model.Config) []string {
 	var filteredWalletIds []string
 	for _, walletName := range walletNames {
 		for _, wallet := range config.Wallets {

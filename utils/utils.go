@@ -4,21 +4,24 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/coinbase-samples/prime-sdk-go"
+	"github.com/coinbase-samples/prime-sweeper-go/model"
 	"go.uber.org/zap"
 	"net/http"
 	"os"
 	"time"
 )
 
-func getTimeoutDuration(config *Config) time.Duration {
+const defaultTimeoutDuration time.Duration = 7
+
+func getTimeoutDuration(config *model.Config) time.Duration {
 	if config.Daemon.TimeoutDuration > 0 {
 		return time.Duration(config.Daemon.TimeoutDuration) * time.Second
 	}
 
-	return 7 * time.Second
+	return defaultTimeoutDuration * time.Second
 }
 
-func GetContextWithTimeout(config *Config) (context.Context, context.CancelFunc) {
+func GetContextWithTimeout(config *model.Config) (context.Context, context.CancelFunc) {
 	timeoutDuration := getTimeoutDuration(config)
 
 	return context.WithTimeout(context.Background(), timeoutDuration)

@@ -3,57 +3,33 @@ package utils
 import (
 	"fmt"
 	"github.com/coinbase-samples/prime-sdk-go"
+	"github.com/coinbase-samples/prime-sweeper-go/model"
 	"github.com/go-yaml/yaml"
 	"go.uber.org/zap"
 	"os"
 )
 
-type Config struct {
-	Daemon  DaemonConfig `yaml:"daemon"`
-	Rules   []Rule       `yaml:"rules"`
-	Wallets []Wallet     `yaml:"wallets"`
-}
-
-type DaemonConfig struct {
-	TimeoutDuration int `yaml:"timeoutDuration"`
-}
-
-type Rule struct {
-	Direction   string   `yaml:"direction"`
-	Name        string   `yaml:"name"`
-	Description string   `yaml:"description"` // Optional
-	Schedule    string   `yaml:"schedule"`
-	Wallets     []string `yaml:"wallets"`
-}
-
-type Wallet struct {
-	Name         string `yaml:"name"`
-	Asset        string `yaml:"asset"`
-	Description  string `yaml:"description"` // Optional
-	Type         string `yaml:"type"`
-	ColdWalletId string `yaml:"cold-wallet-id"`
-}
-
-func ReadConfig(log *zap.Logger, filename string) (*Config, error) {
+func ReadConfig(log *zap.Logger, filename string) (*model.Config, error) {
 	bytes, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
 
-	var config Config
-	err = yaml.Unmarshal(bytes, &config)
+	config := &model.Config{}
+
+	err = yaml.Unmarshal(bytes, config)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := validateConfig(log, &config); err != nil {
+	if err := validateConfig(log, config); err != nil {
 		return nil, err
 	}
 
-	return &config, nil
+	return config, nil
 }
 
-func validateConfig(log *zap.Logger, config *Config) error {
+func validateConfig(log *zap.Logger, config *model.Config) error {
 	if err := checkUniqueRuleNames(config); err != nil {
 		return err
 	}
@@ -64,7 +40,7 @@ func validateConfig(log *zap.Logger, config *Config) error {
 	return validateColdWallets(log, config)
 }
 
-func checkUniqueRuleNames(config *Config) error {
+func checkUniqueRuleNames(config *model.Config) error {
 	ruleNames := make(map[string]bool)
 	for _, rule := range config.Rules {
 		if _, exists := ruleNames[rule.Name]; exists {
@@ -75,7 +51,7 @@ func checkUniqueRuleNames(config *Config) error {
 	return nil
 }
 
-func checkRulesAndWallets(config *Config) error {
+func checkRulesAndWallets(config *model.Config) error {
 	walletNames := make(map[string]bool)
 	for _, rule := range config.Rules {
 		if rule.Schedule == "" {
@@ -96,7 +72,7 @@ func checkRulesAndWallets(config *Config) error {
 	return nil
 }
 
-func walletExists(walletName string, wallets []Wallet) bool {
+func walletExists(walletName string, wallets []model.Wallet) bool {
 	for _, w := range wallets {
 		if w.Name == walletName {
 			return true
@@ -105,23 +81,23 @@ func walletExists(walletName string, wallets []Wallet) bool {
 	return false
 }
 
-func validateColdWallets(log *zap.Logger, config *Config) error {
+func validateColdWallets(log *zap.Logger, config *model.Config) error {
 	client, err := GetClientFromEnv(log)
 	if err != nil {
 		log.Error("cannot get client from environment", zap.Error(err))
 		return err
 	}
 
-	ctx, cancel := GetContextWithTimeout(config)
-	defer cancel()
-
 	for _, walletConfig := range config.Wallets {
+		ctx, cancel := GetContextWithTimeout(config)
+
 		request := &prime.GetWalletRequest{
 			PortfolioId: client.Credentials.PortfolioId,
 			Id:          walletConfig.ColdWalletId,
 		}
 
 		response, err := client.GetWallet(ctx, request)
+		cancel()
 		if err != nil {
 			log.Error("cannot get wallet", zap.String("wallet", walletConfig.Name), zap.Error(err))
 			return err
