@@ -9,7 +9,7 @@ import (
 	"os"
 )
 
-func ReadConfig(log *zap.Logger, filename string) (*model.Config, error) {
+func ReadConfig(filename string) (*model.Config, error) {
 	bytes, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -21,14 +21,14 @@ func ReadConfig(log *zap.Logger, filename string) (*model.Config, error) {
 		return nil, err
 	}
 
-	if err := validateConfig(log, config); err != nil {
+	if err := validateConfig(config); err != nil {
 		return nil, err
 	}
 
 	return config, nil
 }
 
-func validateConfig(log *zap.Logger, config *model.Config) error {
+func validateConfig(config *model.Config) error {
 	if err := checkUniqueRuleNames(config); err != nil {
 		return err
 	}
@@ -36,7 +36,7 @@ func validateConfig(log *zap.Logger, config *model.Config) error {
 	if err := checkRulesAndWallets(config); err != nil {
 		return err
 	}
-	return validateColdWallets(log, config)
+	return validateColdWallets(config)
 }
 
 func checkUniqueRuleNames(config *model.Config) error {
@@ -80,7 +80,7 @@ func walletExists(walletName string, wallets []model.Wallet) bool {
 	return false
 }
 
-func validateColdWallets(log *zap.Logger, config *model.Config) error {
+func validateColdWallets(config *model.Config) error {
 	client, err := GetClientFromEnv()
 	if err != nil {
 		return fmt.Errorf("cannot get client from environment %w", err)
@@ -97,7 +97,7 @@ func validateColdWallets(log *zap.Logger, config *model.Config) error {
 		response, err := client.GetWallet(ctx, request)
 		cancel()
 		if err != nil {
-			log.Error("cannot get wallet", zap.String("wallet", walletConfig.Name), zap.Error(err))
+			zap.L().Error("cannot get wallet", zap.String("wallet", walletConfig.Name), zap.Error(err))
 			return err
 		}
 

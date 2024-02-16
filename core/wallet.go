@@ -24,7 +24,7 @@ type Balance struct {
 	WithdrawableAmount float64 `json:"withdrawable_amount"`
 }
 
-func CollectTradingWallets(log *zap.Logger, config *model.Config) (map[string]WalletResponse, error) {
+func CollectTradingWallets(config *model.Config) (map[string]WalletResponse, error) {
 	client, err := utils.GetClientFromEnv()
 	if err != nil {
 		return nil, fmt.Errorf("cannot get client from environment %w", err)
@@ -48,7 +48,7 @@ func CollectTradingWallets(log *zap.Logger, config *model.Config) (map[string]Wa
 
 		response, err := client.ListWallets(ctx, request)
 		if err != nil {
-			log.Error("cannot list wallets for asset", zap.String("asset", asset), zap.Error(err))
+			zap.L().Error("cannot list wallets for asset", zap.String("asset", asset), zap.Error(err))
 			return nil, err
 		}
 
@@ -65,7 +65,7 @@ func CollectTradingWallets(log *zap.Logger, config *model.Config) (map[string]Wa
 		}
 
 		if !found {
-			log.Info("no trading wallet found for asset", zap.String("asset", asset))
+			zap.L().Info("no trading wallet found for asset", zap.String("asset", asset))
 		}
 	}
 

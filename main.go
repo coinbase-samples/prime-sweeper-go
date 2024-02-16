@@ -13,21 +13,22 @@ func main() {
 	if err != nil {
 		panic("cannot initialize logger: " + err.Error())
 	}
+	zap.ReplaceGlobals(log)
 	defer log.Sync()
 
-	sweeperAgent, err := agent.NewSweeperAgent(log, "config.yaml")
+	sweeperAgent, err := agent.NewSweeperAgent("config.yaml")
 	if err != nil {
-		log.Error("failed to initialize sweeper agent", zap.Error(err))
+		zap.L().Error("failed to initialize sweeper agent", zap.Error(err))
 		os.Exit(1)
 	}
 
 	if err := sweeperAgent.Setup(); err != nil {
-		log.Error("failed to setup sweeper agent", zap.Error(err))
+		zap.L().Error("failed to setup sweeper agent", zap.Error(err))
 		os.Exit(1)
 	}
 
 	if err := sweeperAgent.Run(); err != nil {
-		log.Error("error running sweeper agent", zap.Error(err))
+		zap.L().Error("error running sweeper agent", zap.Error(err))
 		os.Exit(1)
 	}
 
@@ -35,5 +36,5 @@ func main() {
 	signal.Notify(stopChan, syscall.SIGINT, syscall.SIGTERM)
 	<-stopChan
 
-	log.Info("Shutting down Sweeper Agent...")
+	zap.L().Info("Shutting down Sweeper Agent...")
 }

@@ -38,7 +38,7 @@ func TestReadConfig(t *testing.T) {
 	}
 
 	configFilePath := filepath.Join(dir, "test_config.yaml")
-	config, err := utils.ReadConfig(nil, configFilePath)
+	config, err := utils.ReadConfig(configFilePath)
 	assert.NoError(t, err, "config should be loaded without errors")
 	assert.Equal(t, expectedConfig, *config, "loaded config should match expected config")
 }

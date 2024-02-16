@@ -31,7 +31,7 @@ wallets:
     type: "cold_custody"
     cold_wallet_id: "wallet_uuid"
 daemon:
-  context_timeout_duration: 7
+  context_timeout_duration: 60
   transfer_monitor_frequency: 10
-  transfer_monitor_timeout_duration: 60
+  transfer_monitor_timeout_duration: 300
 

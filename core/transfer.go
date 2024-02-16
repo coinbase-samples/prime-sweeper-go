@@ -69,10 +69,9 @@ func logAndTrackTransfer(response *prime.CreateWalletTransferResponse,
 	sourceWalletId string,
 	destinationWalletId string,
 	direction model.TransferDirection,
-	log *zap.Logger,
 	operationId string) {
 
-	log.Info("initiated transfer",
+	zap.L().Info("initiated transfer",
 		zap.String("amount", response.Amount),
 		zap.String("symbol", response.Symbol),
 		zap.String("source_wallet_id", sourceWalletId),
@@ -81,16 +80,26 @@ func logAndTrackTransfer(response *prime.CreateWalletTransferResponse,
 		zap.String("operation_id", operationId))
 
 	if direction == model.ColdToHot {
-		log.Info("cold transfer url", zap.String("transfer_url", response.ApprovalUrl), zap.String("operation_id", operationId))
+		zap.L().Info("cold transfer url",
+			zap.String("transfer_url",
+				response.ApprovalUrl),
+			zap.String("operation_id", operationId))
 	}
 
-	go trackTransaction(response.ActivityId, log, config, response.ApprovalUrl, operationId)
+	go trackTransaction(response.ActivityId, config, response.ApprovalUrl, operationId)
 }
 
-func InitiateTransfers(walletsMap map[string]*Balance, config *model.Config, direction model.TransferDirection, log *zap.Logger, ruleName, operationId string) error {
+func InitiateTransfers(
+	walletsMap map[string]*Balance,
+	config *model.Config,
+	direction model.TransferDirection,
+	rule model.Rule,
+	operationId string,
+) error {
+
 	client, err := utils.GetClientFromEnv()
 	if err != nil {
-		log.Error("cannot get client from environment", zap.Error(err))
+		zap.L().Error("cannot get client from environment", zap.Error(err))
 		return err
 	}
 
@@ -99,44 +108,63 @@ func InitiateTransfers(walletsMap map[string]*Balance, config *model.Config, dir
 
 		request, err := prepareTransferRequest(client, walletId, balance, config, direction)
 		if err != nil {
-			log.Error("error preparing transfer request", zap.String("rule_name", ruleName), zap.String("operation_id", operationId), zap.Error(err))
+			zap.L().Error("error preparing transfer request",
+				zap.String("rule_name", rule.Name),
+				zap.String("wallet_id", walletId),
+				zap.String("operation_id", operationId),
+				zap.Error(err))
 			continue
 		}
 
 		response, err := client.CreateWalletTransfer(ctx, &request)
 		cancel()
 		if err != nil {
-			log.Error("could not create transfer", zap.String("rule_name", ruleName), zap.String("operation_id", operationId), zap.Error(err))
+			zap.L().Error("could not create transfer",
+				zap.String("rule_name", rule.Name),
+				zap.String("wallet_id", walletId),
+				zap.String("operation_id", operationId),
+				zap.Error(err))
 			continue
 		}
 
-		logAndTrackTransfer(response, config, request.SourceWalletId, request.DestinationWalletId, direction, log, operationId)
+		logAndTrackTransfer(response, config, request.SourceWalletId, request.DestinationWalletId, direction, operationId)
 	}
 
 	return nil
 }
 
-func logTransactionStatus(client *prime.Client, ctx context.Context, transactionId, lastStatus, operationId string, log *zap.Logger) (string, error) {
+func logTransactionStatus(
+	client *prime.Client,
+	ctx context.Context,
+	transactionId,
+	lastStatus,
+	operationId string,
+) (string, error) {
+
 	transactionResp, err := client.GetTransaction(ctx, &prime.GetTransactionRequest{
 		PortfolioId:   client.Credentials.PortfolioId,
 		TransactionId: transactionId,
 	})
 	if err != nil {
-		log.Error("could not get transaction", zap.String("transaction_id", transactionId), zap.Error(err), zap.String("operation_id", operationId))
+		zap.L().Error("could not get transaction",
+			zap.String("transaction_id",
+				transactionId),
+			zap.Error(err),
+			zap.String("operation_id", operationId))
 		return lastStatus, fmt.Errorf("could not get transaction for activity %s: %w", transactionId, err)
 	}
 
 	currentStatus := transactionResp.Transaction.Status
 	if currentStatus != lastStatus {
-		log.Info("transaction status updated", zap.String("transaction_id", transactionId), zap.String("status", currentStatus), zap.String("operation_id", operationId))
+		zap.L().Info("transaction status updated", zap.String("transaction_id", transactionId), zap.String("status", currentStatus), zap.String("operation_id", operationId))
 	}
 	return currentStatus, nil
 }
 
-func trackTransaction(activityId string, log *zap.Logger, config *model.Config, approvalUrl, operationId string) error {
+func trackTransaction(activityId string, config *model.Config, approvalUrl, operationId string) error {
 	client, err := utils.GetClientFromEnv()
 	if err != nil {
-		log.Error("cannot get client from environment", zap.Error(err))
+		zap.L().Error("cannot get client from environment", zap.Error(err))
 		return err
 	}
 
@@ -148,7 +176,10 @@ func trackTransaction(activityId string, log *zap.Logger, config *model.Config, 
 		Id:          activityId,
 	})
 	if err != nil {
-		log.Error("could not get activity", zap.String("activity_id", activityId), zap.String("operation_id", operationId), zap.Error(err))
+		zap.L().Error("could not get activity",
+			zap.String("activity_id", activityId),
+			zap.String("operation_id", operationId),
+			zap.Error(err))
 		return fmt.Errorf("could not get activity: %w", err)
 	}
 
@@ -159,12 +190,14 @@ func trackTransaction(activityId string, log *zap.Logger, config *model.Config, 
 		select {
 		case <-ctx.Done():
 			if ctx.Err() == context.DeadlineExceeded && approvalUrl != "" {
-				log.Info("transaction tracking window exceeded, continue on Prime", zap.String("prime_url", approvalUrl), zap.String("operation_id", operationId))
+				zap.L().Info("transaction tracking window exceeded, continue on Prime",
+					zap.String("prime_url", approvalUrl),
+					zap.String("operation_id", operationId))
 			}
 			return nil
 		case <-time.After(config.Daemon.TransferMonitorFrequency * time.Second):
 			var err error
-			lastStatus, err = logTransactionStatus(client, ctx, transactionId, lastStatus, operationId, log)
+			lastStatus, err = logTransactionStatus(client, ctx, transactionId, lastStatus, operationId)
 			if err != nil {
 				return err
 			}

@@ -12,35 +12,33 @@ import (
 )
 
 type SweeperAgent struct {
-	Log    *zap.Logger
 	Config *model.Config
 }
 
-func NewSweeperAgent(log *zap.Logger, configPath string) (*SweeperAgent, error) {
-	config, err := utils.ReadConfig(log, configPath)
+func NewSweeperAgent(configPath string) (*SweeperAgent, error) {
+	config, err := utils.ReadConfig(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config: %w", err)
 	}
 
 	return &SweeperAgent{
-		Log:    log,
 		Config: config,
 	}, nil
 }
 
 func (a *SweeperAgent) Setup() error {
 	var err error
-	core.TradingWallets, err = core.CollectTradingWallets(a.Log, a.Config)
+	core.TradingWallets, err = core.CollectTradingWallets(a.Config)
 	if err != nil {
 		return fmt.Errorf("cannot collect trading wallets: %w", err)
 	}
-	a.Log.Info("successfully collected trading wallet information.", zap.Any("TradingWallets", core.TradingWallets))
+	zap.L().Info("successfully collected trading wallet information.", zap.Any("TradingWallets", core.TradingWallets))
 
 	return nil
 }
 
 func (a *SweeperAgent) Run() error {
-	if err := core.SetupAndRunCron(a.Log, a.Config); err != nil {
+	if err := core.SetupAndRunCron(a.Config); err != nil {
 		return fmt.Errorf("failed to setup and run cron jobs: %w", err)
 	}
 
@@ -48,6 +46,6 @@ func (a *SweeperAgent) Run() error {
 	signal.Notify(stopChan, syscall.SIGINT, syscall.SIGTERM)
 
 	<-stopChan
-	a.Log.Info("shutting down Sweeper Agent...")
+	zap.L().Info("shutting down Sweeper Agent...")
 	return nil
 }
