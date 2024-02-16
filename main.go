@@ -1,34 +1,39 @@
 package main
 
 import (
-	"github.com/coinbase-samples/prime-sweeper-go/utils"
+	"github.com/coinbase-samples/prime-sweeper-go/agent"
 	"go.uber.org/zap"
 	"os"
+	"os/signal"
+	"syscall"
 )
 
 func main() {
 	log, err := zap.NewProduction()
 	if err != nil {
-		panic("cannot initialize Zap logger: " + err.Error())
+		panic("cannot initialize logger: " + err.Error())
 	}
 	defer log.Sync()
 
-	config, err := utils.ReadConfig(log, "config.yaml")
+	sweeperAgent, err := agent.NewSweeperAgent(log, "config.yaml")
 	if err != nil {
-		log.Error("failed to read config", zap.Error(err))
+		log.Error("failed to initialize sweeper agent", zap.Error(err))
 		os.Exit(1)
 	}
 
-	utils.TradingWallets, err = utils.CollectTradingWallets(log, config)
-	if err != nil {
-		log.Error("cannot collect trading wallets", zap.Error(err))
+	if err := sweeperAgent.Setup(); err != nil {
+		log.Error("failed to setup sweeper agent", zap.Error(err))
 		os.Exit(1)
 	}
-	log.Info("successfully collected trading wallet information.", zap.Any("TradingWallets", utils.TradingWallets))
 
-	err = utils.SetupAndRunCron(log, config)
-	if err != nil {
-		log.Error("failed to setup and run cron jobs", zap.Error(err))
+	if err := sweeperAgent.Run(); err != nil {
+		log.Error("error running sweeper agent", zap.Error(err))
 		os.Exit(1)
 	}
+
+	stopChan := make(chan os.Signal, 1)
+	signal.Notify(stopChan, syscall.SIGINT, syscall.SIGTERM)
+	<-stopChan
+
+	log.Info("Shutting down Sweeper Agent...")
 }

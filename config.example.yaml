@@ -8,7 +8,7 @@ rules:
   - name: "example_frequent_hot_sweep"
     direction: "trading_to_cold_custody"
     description: "Transfer from trading to cold custody at regular cadence"
-    schedule: "*/30 * * * * *"
+    schedule: "*/10 * * * * *"
     wallets:
       - "ExampleBtcWalletName1"
       - "ExampleEthWalletName1"
@@ -24,11 +24,14 @@ wallets:
     asset: "BTC"
     description: "optional wallet description"
     type: "cold_custody"
-    cold-wallet-id: "wallet_uuid"
+    cold_wallet_id: "wallet_uuid"
   - name: "ExampleEthWalletName1"
     asset: "ETH"
     description: "optional wallet description"
     type: "cold_custody"
-    cold-wallet-id: "wallet_uuid"
+    cold_wallet_id: "wallet_uuid"
 daemon:
-  timeoutDuration: 7
+  context_timeout_duration: 7
+  transfer_monitor_frequency: 10
+  transfer_monitor_timeout_duration: 60
+

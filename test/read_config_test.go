@@ -1,6 +1,7 @@
 package test
 
 import (
+	"github.com/coinbase-samples/prime-sweeper-go/model"
 	"github.com/coinbase-samples/prime-sweeper-go/utils"
 	"github.com/stretchr/testify/assert"
 	"path/filepath"
@@ -12,11 +13,11 @@ func TestReadConfig(t *testing.T) {
 	_, filename, _, _ := runtime.Caller(0)
 	dir := filepath.Dir(filename)
 
-	expectedConfig := utils.Config{
-		Daemon: utils.DaemonConfig{
-			TimeoutDuration: 7,
+	expectedConfig := model.Config{
+		Daemon: model.DaemonConfig{
+			ContextTimeoutDuration: 7,
 		},
-		Rules: []utils.Rule{
+		Rules: []model.Rule{
 			{
 				Name:        "daily_hot_sweep",
 				Direction:   "trading_to_cold_custody",
@@ -25,7 +26,7 @@ func TestReadConfig(t *testing.T) {
 				Wallets:     []string{"ETH_cold"},
 			},
 		},
-		Wallets: []utils.Wallet{
+		Wallets: []model.Wallet{
 			{
 				Name:         "ETH_cold",
 				Asset:        "ETH",

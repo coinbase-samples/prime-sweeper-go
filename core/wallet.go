@@ -1,9 +1,10 @@
-package utils
+package core
 
 import (
 	"fmt"
 	"github.com/coinbase-samples/prime-sdk-go"
 	"github.com/coinbase-samples/prime-sweeper-go/model"
+	"github.com/coinbase-samples/prime-sweeper-go/utils"
 	"go.uber.org/zap"
 	"strconv"
 )
@@ -24,10 +25,9 @@ type Balance struct {
 }
 
 func CollectTradingWallets(log *zap.Logger, config *model.Config) (map[string]WalletResponse, error) {
-	client, err := GetClientFromEnv(log)
+	client, err := utils.GetClientFromEnv()
 	if err != nil {
-		log.Error("cannot get client from environment", zap.Error(err))
-		return nil, err
+		return nil, fmt.Errorf("cannot get client from environment %w", err)
 	}
 
 	tradingWallets := make(map[string]WalletResponse)
@@ -36,7 +36,7 @@ func CollectTradingWallets(log *zap.Logger, config *model.Config) (map[string]Wa
 		uniqueAssets[wallet.Asset] = struct{}{}
 	}
 
-	ctx, cancel := GetContextWithTimeout(config)
+	ctx, cancel := utils.GetContextWithTimeout(config)
 	defer cancel()
 
 	for asset := range uniqueAssets {
@@ -72,16 +72,16 @@ func CollectTradingWallets(log *zap.Logger, config *model.Config) (map[string]Wa
 	return tradingWallets, nil
 }
 
-func CollectWalletBalances(log *zap.Logger, config *model.Config, walletIds []string) (map[string]*Balance, error) {
+func CollectWalletBalances(config *model.Config, walletIds []string) (map[string]*Balance, error) {
 	nonEmptyWallets := make(map[string]*Balance)
 
-	client, err := GetClientFromEnv(log)
+	client, err := utils.GetClientFromEnv()
 	if err != nil {
 		return nil, fmt.Errorf("cannot get client from environment: %w", err)
 	}
 
 	for _, walletId := range walletIds {
-		ctx, cancel := GetContextWithTimeout(config)
+		ctx, cancel := utils.GetContextWithTimeout(config)
 		request := &prime.GetWalletBalanceRequest{
 			PortfolioId: client.Credentials.PortfolioId,
 			Id:          walletId,

@@ -17,8 +17,7 @@ func ReadConfig(log *zap.Logger, filename string) (*model.Config, error) {
 
 	config := &model.Config{}
 
-	err = yaml.Unmarshal(bytes, config)
-	if err != nil {
+	if err = yaml.Unmarshal(bytes, config); err != nil {
 		return nil, err
 	}
 
@@ -55,7 +54,7 @@ func checkRulesAndWallets(config *model.Config) error {
 	walletNames := make(map[string]bool)
 	for _, rule := range config.Rules {
 		if rule.Schedule == "" {
-			return fmt.Errorf("schedule not specified for rule: %s", rule.Description)
+			return fmt.Errorf("schedule not specified for rule: %s", rule.Name)
 		}
 		for _, walletName := range rule.Wallets {
 			if !walletExists(walletName, config.Wallets) {
@@ -82,10 +81,9 @@ func walletExists(walletName string, wallets []model.Wallet) bool {
 }
 
 func validateColdWallets(log *zap.Logger, config *model.Config) error {
-	client, err := GetClientFromEnv(log)
+	client, err := GetClientFromEnv()
 	if err != nil {
-		log.Error("cannot get client from environment", zap.Error(err))
-		return err
+		return fmt.Errorf("cannot get client from environment %w", err)
 	}
 
 	for _, walletConfig := range config.Wallets {
