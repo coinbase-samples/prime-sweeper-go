@@ -25,11 +25,11 @@ type Rule struct {
 }
 
 type Wallet struct {
-	Name         string `yaml:"name" json:"name"`
-	Asset        string `yaml:"asset" json:"asset"`
-	Description  string `yaml:"description" json:"description"` // Optional
-	Type         string `yaml:"type" json:"type"`
-	ColdWalletId string `yaml:"cold_wallet_id" json:"cold_wallet_id"`
+	Name        string `yaml:"name" json:"name"`
+	Asset       string `yaml:"asset" json:"asset"`
+	Description string `yaml:"description" json:"description"` // Optional
+	Type        string `yaml:"type" json:"type"`
+	WalletId    string `yaml:"wallet_id" json:"wallet_id"`
 }
 
 const (

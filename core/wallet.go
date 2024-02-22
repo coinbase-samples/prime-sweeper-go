@@ -48,7 +48,10 @@ func CollectTradingWallets(config *model.Config) (map[string]WalletResponse, err
 
 		response, err := client.ListWallets(ctx, request)
 		if err != nil {
-			zap.L().Error("cannot list wallets for asset", zap.String("asset", asset), zap.Error(err))
+			zap.L().Error("cannot list wallets for asset",
+				zap.String("asset", asset),
+				zap.Error(err),
+			)
 			return nil, err
 		}
 
@@ -140,7 +143,7 @@ func FilterWalletsByName(walletNames []string, config *model.Config) []string {
 	for _, walletName := range walletNames {
 		for _, wallet := range config.Wallets {
 			if wallet.Name == walletName {
-				filteredWalletIds = append(filteredWalletIds, wallet.ColdWalletId)
+				filteredWalletIds = append(filteredWalletIds, wallet.WalletId)
 			}
 		}
 	}

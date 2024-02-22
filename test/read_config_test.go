@@ -28,11 +28,11 @@ func TestReadConfig(t *testing.T) {
 		},
 		Wallets: []model.Wallet{
 			{
-				Name:         "ETH_cold",
-				Asset:        "ETH",
-				Description:  "main cold wallet for ETH",
-				Type:         "cold_custody",
-				ColdWalletId: "0ed06581-e121-4fe6-81df-1d5187432977",
+				Name:        "ETH_cold",
+				Asset:       "ETH",
+				Description: "main cold wallet for ETH",
+				Type:        "cold_custody",
+				WalletId:    "0ed06581-e121-4fe6-81df-1d5187432977",
 			},
 		},
 	}

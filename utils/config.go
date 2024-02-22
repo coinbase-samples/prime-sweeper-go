@@ -91,7 +91,7 @@ func validateColdWallets(config *model.Config) error {
 
 		request := &prime.GetWalletRequest{
 			PortfolioId: client.Credentials.PortfolioId,
-			Id:          walletConfig.ColdWalletId,
+			Id:          walletConfig.WalletId,
 		}
 
 		response, err := client.GetWallet(ctx, request)
@@ -102,7 +102,11 @@ func validateColdWallets(config *model.Config) error {
 		}
 
 		if response.Wallet.Symbol != walletConfig.Asset {
-			return fmt.Errorf("asset mismatch for wallet '%s': expected '%s', got '%s'", walletConfig.Name, walletConfig.Asset, response.Wallet.Symbol)
+			return fmt.Errorf("asset mismatch for wallet '%s': expected '%s', got '%s'",
+				walletConfig.Name,
+				walletConfig.Asset,
+				response.Wallet.Symbol,
+			)
 		}
 	}
 

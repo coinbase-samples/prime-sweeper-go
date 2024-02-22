@@ -36,5 +36,5 @@ func main() {
 	signal.Notify(stopChan, syscall.SIGINT, syscall.SIGTERM)
 	<-stopChan
 
-	zap.L().Info("Shutting down Sweeper Agent...")
+	sweeperAgent.Stop()
 }

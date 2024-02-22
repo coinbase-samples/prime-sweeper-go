@@ -15,7 +15,7 @@ import (
 func findColdWalletIdForAsset(config *model.Config, asset string, walletType string) (string, error) {
 	for _, wallet := range config.Wallets {
 		if wallet.Asset == asset && wallet.Type == walletType {
-			return wallet.ColdWalletId, nil
+			return wallet.WalletId, nil
 		}
 	}
 	return "", fmt.Errorf("cold wallet for asset '%s' of type '%s' not found", asset, walletType)
@@ -28,6 +28,17 @@ func findHotWalletIdForAsset(tradingWalletsMap map[string]WalletResponse, asset 
 	return "", fmt.Errorf("hot wallet for asset '%s' not found", asset)
 }
 
+func findWalletIdForAsset(config *model.Config, symbol string, direction model.TransferDirection) (string, error) {
+	switch direction {
+	case model.HotToCold:
+		return findColdWalletIdForAsset(config, symbol, "cold_custody")
+	case model.ColdToHot:
+		return findHotWalletIdForAsset(TradingWallets, symbol)
+	default:
+		return "", fmt.Errorf("invalid transfer direction")
+	}
+}
+
 func prepareTransferRequest(client *prime.Client,
 	walletId string,
 	balance *Balance,
@@ -35,18 +46,9 @@ func prepareTransferRequest(client *prime.Client,
 	direction model.TransferDirection,
 ) (prime.CreateWalletTransferRequest, error) {
 
-	var (
-		sourceWalletId      string
-		destinationWalletId string
-		err                 error
-	)
-	if direction == model.HotToCold {
-		sourceWalletId = walletId
-		destinationWalletId, err = findColdWalletIdForAsset(config, balance.Symbol, "cold_custody")
-	} else if direction == model.ColdToHot {
-		sourceWalletId = walletId
-		destinationWalletId, err = findHotWalletIdForAsset(TradingWallets, balance.Symbol)
-	}
+	sourceWalletId := walletId
+
+	destinationWalletId, err := findWalletIdForAsset(config, balance.Symbol, direction)
 
 	if err != nil {
 		return prime.CreateWalletTransferRequest{}, err
@@ -68,7 +70,6 @@ func logAndTrackTransfer(response *prime.CreateWalletTransferResponse,
 	config *model.Config,
 	sourceWalletId string,
 	destinationWalletId string,
-	direction model.TransferDirection,
 	operationId string) {
 
 	zap.L().Info("initiated transfer",
@@ -76,15 +77,10 @@ func logAndTrackTransfer(response *prime.CreateWalletTransferResponse,
 		zap.String("symbol", response.Symbol),
 		zap.String("source_wallet_id", sourceWalletId),
 		zap.String("destination_wallet_id", destinationWalletId),
+		zap.String("transfer_url", response.ApprovalUrl),
 		zap.String("activity_id", response.ActivityId),
-		zap.String("operation_id", operationId))
-
-	if direction == model.ColdToHot {
-		zap.L().Info("cold transfer url",
-			zap.String("transfer_url",
-				response.ApprovalUrl),
-			zap.String("operation_id", operationId))
-	}
+		zap.String("operation_id", operationId),
+	)
 
 	go trackTransaction(response.ActivityId, config, response.ApprovalUrl, operationId)
 }
@@ -104,15 +100,23 @@ func InitiateTransfers(
 	}
 
 	for walletId, balance := range walletsMap {
-		ctx, cancel := utils.GetContextWithTimeout(config)
+		zap.L().Info("found wallet balance",
+			zap.String("wallet_id", walletId),
+			zap.String("symbol", balance.Symbol),
+			zap.String("rule_name", rule.Name),
+			zap.Float64("withdrawable_amount", balance.WithdrawableAmount),
+			zap.String("operation_id", operationId),
+		)
 
+		ctx, cancel := utils.GetContextWithTimeout(config)
 		request, err := prepareTransferRequest(client, walletId, balance, config, direction)
 		if err != nil {
 			zap.L().Error("error preparing transfer request",
 				zap.String("rule_name", rule.Name),
 				zap.String("wallet_id", walletId),
 				zap.String("operation_id", operationId),
-				zap.Error(err))
+				zap.Error(err),
+			)
 			continue
 		}
 
@@ -123,11 +127,12 @@ func InitiateTransfers(
 				zap.String("rule_name", rule.Name),
 				zap.String("wallet_id", walletId),
 				zap.String("operation_id", operationId),
-				zap.Error(err))
+				zap.Error(err),
+			)
 			continue
 		}
 
-		logAndTrackTransfer(response, config, request.SourceWalletId, request.DestinationWalletId, direction, operationId)
+		logAndTrackTransfer(response, config, request.SourceWalletId, request.DestinationWalletId, operationId)
 	}
 
 	return nil
@@ -150,13 +155,18 @@ func logTransactionStatus(
 			zap.String("transaction_id",
 				transactionId),
 			zap.Error(err),
-			zap.String("operation_id", operationId))
+			zap.String("operation_id", operationId),
+		)
 		return lastStatus, fmt.Errorf("could not get transaction for activity %s: %w", transactionId, err)
 	}
 
 	currentStatus := transactionResp.Transaction.Status
 	if currentStatus != lastStatus {
-		zap.L().Info("transaction status updated", zap.String("transaction_id", transactionId), zap.String("status", currentStatus), zap.String("operation_id", operationId))
+		zap.L().Info("transaction status updated",
+			zap.String("transaction_id", transactionId),
+			zap.String("status", currentStatus),
+			zap.String("operation_id", operationId),
+		)
 	}
 	return currentStatus, nil
 }
@@ -179,7 +189,8 @@ func trackTransaction(activityId string, config *model.Config, approvalUrl, oper
 		zap.L().Error("could not get activity",
 			zap.String("activity_id", activityId),
 			zap.String("operation_id", operationId),
-			zap.Error(err))
+			zap.Error(err),
+		)
 		return fmt.Errorf("could not get activity: %w", err)
 	}
 
@@ -192,7 +203,8 @@ func trackTransaction(activityId string, config *model.Config, approvalUrl, oper
 			if ctx.Err() == context.DeadlineExceeded && approvalUrl != "" {
 				zap.L().Info("transaction tracking window exceeded, continue on Prime",
 					zap.String("prime_url", approvalUrl),
-					zap.String("operation_id", operationId))
+					zap.String("operation_id", operationId),
+				)
 			}
 			return nil
 		case <-time.After(config.Daemon.TransferMonitorFrequency * time.Second):

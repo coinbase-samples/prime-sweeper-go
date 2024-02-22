@@ -24,12 +24,12 @@ wallets:
     asset: "BTC"
     description: "optional wallet description"
     type: "cold_custody"
-    cold_wallet_id: "wallet_uuid"
+    wallet_id: "wallet_uuid"
   - name: "ExampleEthWalletName1"
     asset: "ETH"
     description: "optional wallet description"
     type: "cold_custody"
-    cold_wallet_id: "wallet_uuid"
+    wallet_id: "wallet_uuid"
 daemon:
   context_timeout_duration: 60
   transfer_monitor_frequency: 10
