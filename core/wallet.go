@@ -126,7 +126,7 @@ func GetAssetsForRule(rule model.Rule, config *model.Config) []string {
 	return assets
 }
 
-func FilterHotWalletsByAssets(assets []string, tradingWallets map[string]WalletResponse) map[string]WalletResponse {
+func FilterWalletsByAssets(assets []string, tradingWallets map[string]WalletResponse) map[string]WalletResponse {
 	filteredWalletIds := make(map[string]WalletResponse)
 	for asset, walletResponse := range tradingWallets {
 		for _, ruleAsset := range assets {

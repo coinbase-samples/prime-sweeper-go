@@ -11,6 +11,8 @@ wallets:
     asset: "ETH"
     description: "main cold wallet for ETH"
     type: "cold_custody"
-    cold-wallet-id: "0ed06581-e121-4fe6-81df-1d5187432977"
+    wallet_id: "0ed06581-e121-4fe6-81df-1d5187432977"
 daemon:
-  timeoutDuration: 7
+  context_timeout_duration: 15
+  transfer_monitor_frequency: 10
+  transfer_monitor_timeout_duration: 300

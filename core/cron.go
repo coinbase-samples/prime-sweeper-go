@@ -18,7 +18,7 @@ func ProcessTransfers(
 	var walletIds []string
 	if transferDetails.Direction == model.HotToCold {
 		assets := GetAssetsForRule(rule, config)
-		filteredWallets := FilterHotWalletsByAssets(assets, TradingWallets)
+		filteredWallets := FilterWalletsByAssets(assets, TradingWallets)
 
 		for _, wallet := range filteredWallets {
 			walletIds = append(walletIds, wallet.Id)
