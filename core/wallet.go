@@ -5,8 +5,8 @@ import (
 	"github.com/coinbase-samples/prime-sdk-go"
 	"github.com/coinbase-samples/prime-sweeper-go/model"
 	"github.com/coinbase-samples/prime-sweeper-go/utils"
+	"github.com/shopspring/decimal"
 	"go.uber.org/zap"
-	"strconv"
 )
 
 type WalletResponse struct {
@@ -16,12 +16,12 @@ type WalletResponse struct {
 
 var TradingWallets map[string]WalletResponse
 
-const minTransactionAmount = 0.00000001
+var minTransactionAmount, _ = decimal.NewFromString("0.00000001")
 
 type Balance struct {
-	Id                 string  `json:"id"`
-	Symbol             string  `json:"symbol"`
-	WithdrawableAmount float64 `json:"withdrawable_amount"`
+	Id                 string          `json:"id"`
+	Symbol             string          `json:"symbol"`
+	WithdrawableAmount decimal.Decimal `json:"withdrawable_amount"`
 }
 
 func CollectTradingWallets(config *model.Config) (map[string]WalletResponse, error) {
@@ -97,12 +97,12 @@ func CollectWalletBalances(config *model.Config, walletIds []string) (map[string
 		}
 
 		balance := response.Balance
-		amount, err := strconv.ParseFloat(balance.WithdrawableAmount, 64)
+		amount, err := decimal.NewFromString(balance.WithdrawableAmount)
 		if err != nil {
 			return nil, fmt.Errorf("could not parse amount for wallet ID %s: %v", walletId, err)
 		}
 
-		if amount > minTransactionAmount {
+		if amount.GreaterThan(minTransactionAmount) {
 			nonEmptyWallets[walletId] = &Balance{
 				Id:                 walletId,
 				Symbol:             balance.Symbol,

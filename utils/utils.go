@@ -36,3 +36,7 @@ func GetClientFromEnv() (*prime.Client, error) {
 	client := prime.NewClient(credentials, http.Client{})
 	return client, nil
 }
+
+func LastStatusIsTerminal(status string) bool {
+	return status == "TRANSACTION_DONE" || status == "TRANSACTION_REJECTED" || status == "TRANSACTION_FAILED"
+}

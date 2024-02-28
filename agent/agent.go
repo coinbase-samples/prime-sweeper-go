@@ -8,11 +8,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/robfig/cron/v3"
 	"go.uber.org/zap"
+	"sync"
 )
 
 type SweeperAgent struct {
-	Config *model.Config
-	Cron   *cron.Cron
+	config *model.Config
+	cron   *cron.Cron
 }
 
 func NewSweeperAgent(configPath string) (*SweeperAgent, error) {
@@ -22,14 +23,14 @@ func NewSweeperAgent(configPath string) (*SweeperAgent, error) {
 	}
 
 	return &SweeperAgent{
-		Config: config,
-		Cron:   cron.New(cron.WithSeconds()),
+		config: config,
+		cron:   cron.New(cron.WithSeconds()),
 	}, nil
 }
 
 func (a *SweeperAgent) Setup() error {
 	var err error
-	core.TradingWallets, err = core.CollectTradingWallets(a.Config)
+	core.TradingWallets, err = core.CollectTradingWallets(a.config)
 	if err != nil {
 		return fmt.Errorf("cannot collect trading wallets: %w", err)
 	}
@@ -41,16 +42,21 @@ func (a *SweeperAgent) Setup() error {
 }
 
 func (a *SweeperAgent) Run() error {
-	for _, rule := range a.Config.Rules {
+	var wg sync.WaitGroup
+
+	for _, rule := range a.config.Rules {
 		rule := rule
-		_, err := a.Cron.AddFunc(rule.Schedule, func() {
+		_, err := a.cron.AddFunc(rule.Schedule, func() {
+			wg.Add(1)
+			defer wg.Done()
+
 			transferDetails := model.TransferDetails{
 				Direction:   model.TransferDirection(rule.Direction),
 				WalletNames: rule.Wallets,
 				OperationId: uuid.New().String(),
 				RuleName:    rule.Name,
 			}
-			core.ProcessTransfers(a.Config, rule, transferDetails)
+			core.ProcessTransfers(a.config, rule, transferDetails)
 		})
 		if err != nil {
 			zap.L().Error("failed to schedule cron job for rule", zap.Any("rule", rule), zap.Error(err))
@@ -58,12 +64,16 @@ func (a *SweeperAgent) Run() error {
 		}
 	}
 
-	a.Cron.Start()
+	a.cron.Start()
+	go func() {
+		defer wg.Wait()
+	}()
 
 	return nil
 }
 
 func (a *SweeperAgent) Stop() {
-	a.Cron.Stop()
-	zap.L().Info("cron scheduler stopped, sweeper agent shutting down.")
+	a.cron.Stop()
+	zap.L().Info("cron scheduler stopped, waiting for all jobs to complete.")
+	zap.L().Info("all jobs completed, sweeper agent shutting down.")
 }

@@ -8,7 +8,6 @@ import (
 	"github.com/coinbase-samples/prime-sweeper-go/utils"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
-	"strconv"
 	"time"
 )
 
@@ -40,45 +39,39 @@ func findWalletIdForAsset(config *model.Config, symbol string, direction model.T
 }
 
 func prepareTransferRequest(client *prime.Client,
-	walletId string,
+	sourceWalletId string,
 	balance *Balance,
 	config *model.Config,
 	direction model.TransferDirection,
-) (prime.CreateWalletTransferRequest, error) {
-
-	sourceWalletId := walletId
+) (*prime.CreateWalletTransferRequest, error) {
 
 	destinationWalletId, err := findWalletIdForAsset(config, balance.Symbol, direction)
-
 	if err != nil {
-		return prime.CreateWalletTransferRequest{}, err
+		return nil, err
 	}
 
-	amount := strconv.FormatFloat(balance.WithdrawableAmount, 'f', -1, 64)
-
-	return prime.CreateWalletTransferRequest{
+	request := prime.CreateWalletTransferRequest{
 		PortfolioId:         client.Credentials.PortfolioId,
 		SourceWalletId:      sourceWalletId,
 		Symbol:              balance.Symbol,
 		DestinationWalletId: destinationWalletId,
 		IdempotencyKey:      uuid.New().String(),
-		Amount:              amount,
-	}, nil
+		Amount:              balance.WithdrawableAmount.String(),
+	}
+
+	return &request, nil
 }
 
 func logAndTrackTransfer(response *prime.CreateWalletTransferResponse,
 	config *model.Config,
 	sourceWalletId string,
 	destinationWalletId string,
-	operationId string) {
-
+	operationId string,
+) {
 	zap.L().Info("initiated transfer",
-		zap.String("amount", response.Amount),
-		zap.String("symbol", response.Symbol),
+		zap.Any("response", response),
 		zap.String("source_wallet_id", sourceWalletId),
 		zap.String("destination_wallet_id", destinationWalletId),
-		zap.String("transfer_url", response.ApprovalUrl),
-		zap.String("activity_id", response.ActivityId),
 		zap.String("operation_id", operationId),
 	)
 
@@ -102,9 +95,8 @@ func InitiateTransfers(
 	for walletId, balance := range walletsMap {
 		zap.L().Info("found wallet balance",
 			zap.String("wallet_id", walletId),
-			zap.String("symbol", balance.Symbol),
-			zap.String("rule_name", rule.Name),
-			zap.Float64("withdrawable_amount", balance.WithdrawableAmount),
+			zap.Any("balance", balance),
+			zap.Any("rule", rule),
 			zap.String("operation_id", operationId),
 		)
 
@@ -112,7 +104,7 @@ func InitiateTransfers(
 		request, err := prepareTransferRequest(client, walletId, balance, config, direction)
 		if err != nil {
 			zap.L().Error("error preparing transfer request",
-				zap.String("rule_name", rule.Name),
+				zap.Any("rule", rule),
 				zap.String("wallet_id", walletId),
 				zap.String("operation_id", operationId),
 				zap.Error(err),
@@ -120,11 +112,11 @@ func InitiateTransfers(
 			continue
 		}
 
-		response, err := client.CreateWalletTransfer(ctx, &request)
+		response, err := client.CreateWalletTransfer(ctx, request)
 		cancel()
 		if err != nil {
 			zap.L().Error("could not create transfer",
-				zap.String("rule_name", rule.Name),
+				zap.Any("rule", rule),
 				zap.String("wallet_id", walletId),
 				zap.String("operation_id", operationId),
 				zap.Error(err),
@@ -214,7 +206,7 @@ func trackTransaction(activityId string, config *model.Config, approvalUrl, oper
 				return err
 			}
 
-			if lastStatus == "TRANSACTION_DONE" || lastStatus == "TRANSACTION_REJECTED" || lastStatus == "TRANSACTION_FAILED" {
+			if utils.LastStatusIsTerminal(lastStatus) {
 				return nil
 			}
 		}

@@ -1,4 +1,4 @@
-# Prime Sweeper README
+# Prime Sweeper
 
 [![GoDoc](https://godoc.org/github.com/coinbase-samples/prime-sweeper-go?status.svg)](https://godoc.org/github.com/coinbase-samples/prime-sweeper-go)
 [![Go Report Card](https://goreportcard.com/badge/coinbase-samples/prime-sweeper-go)](https://goreportcard.com/report/coinbase-samples/prime-sweeper-go)
@@ -64,7 +64,7 @@ For example, the two wallets referred to in the above rule may be defined as fol
     asset: "ETH"
     description: "main cold wallet for ETH"
     type: "cold_custody"
-    cold-wallet-id: "wallet_uuid"
+    wallet_id: "wallet_uuid"
 ```
 
 Please note that you may include additional wallets here without having them included in rules. Only wallets that are defined in rules will be in scope for a given cron job.
