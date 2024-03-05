@@ -27,14 +27,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := sweeperAgent.Run(); err != nil {
+	stopChan := make(chan os.Signal, 1)
+	signal.Notify(stopChan, syscall.SIGINT, syscall.SIGTERM)
+
+	if err := sweeperAgent.Run(stopChan); err != nil {
 		zap.L().Error("error running sweeper agent", zap.Error(err))
 		os.Exit(1)
 	}
 
-	stopChan := make(chan os.Signal, 1)
-	signal.Notify(stopChan, syscall.SIGINT, syscall.SIGTERM)
-	<-stopChan
-
-	sweeperAgent.Stop()
+	zap.L().Info("Sweeper shut down gracefully.")
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/robfig/cron/v3"
 	"go.uber.org/zap"
+	"os"
 	"sync"
 )
 
@@ -41,7 +42,7 @@ func (a *SweeperAgent) Setup() error {
 	return nil
 }
 
-func (a *SweeperAgent) Run() error {
+func (a *SweeperAgent) Run(stopChan <-chan os.Signal) error {
 	var wg sync.WaitGroup
 
 	for _, rule := range a.config.Rules {
@@ -65,9 +66,11 @@ func (a *SweeperAgent) Run() error {
 	}
 
 	a.cron.Start()
-	go func() {
-		defer wg.Wait()
-	}()
+
+	<-stopChan
+
+	a.Stop()
+	wg.Wait()
 
 	return nil
 }
@@ -75,5 +78,4 @@ func (a *SweeperAgent) Run() error {
 func (a *SweeperAgent) Stop() {
 	a.cron.Stop()
 	zap.L().Info("cron scheduler stopped, waiting for all jobs to complete.")
-	zap.L().Info("all jobs completed, sweeper agent shutting down.")
 }
