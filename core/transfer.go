@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+const maxWithdrawalGranularity int32 = 8
+
 func findColdWalletIdForAsset(config *model.Config, asset string, walletType string) (string, error) {
 	for _, wallet := range config.Wallets {
 		if wallet.Asset == asset && wallet.Type == walletType {
@@ -50,13 +52,15 @@ func prepareTransferRequest(client *prime.Client,
 		return nil, err
 	}
 
+	cappedAmount := balance.WithdrawableAmount.Truncate(maxWithdrawalGranularity)
+
 	request := prime.CreateWalletTransferRequest{
 		PortfolioId:         client.Credentials.PortfolioId,
 		SourceWalletId:      sourceWalletId,
 		Symbol:              balance.Symbol,
 		DestinationWalletId: destinationWalletId,
 		IdempotencyKey:      uuid.New().String(),
-		Amount:              balance.WithdrawableAmount.String(),
+		Amount:              cappedAmount.String(),
 	}
 
 	return &request, nil
