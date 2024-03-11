@@ -1,0 +1,18 @@
+rules:
+  - name: "daily_hot_sweep"
+    direction: "trading_to_cold_custody"
+    description: "Transfer from trading to cold custody at specified time"
+    schedule: "0 0 20 * * 1-5"
+    wallets:
+      - "ETH_cold"
+
+wallets:
+  - name: "ETH_cold"
+    asset: "ETH"
+    description: "main cold wallet for ETH"
+    type: "cold_custody"
+    wallet_id: "0ed06581-e121-4fe6-81df-1d5187432977"
+daemon:
+  context_timeout_duration: 15
+  transfer_monitor_frequency: 10
+  transfer_monitor_timeout_duration: 300
