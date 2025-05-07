@@ -1,14 +1,32 @@
+/**
+ * Copyright 2024-present Coinbase Global, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package core
 
 import (
 	"context"
 	"fmt"
-	"github.com/coinbase-samples/prime-sdk-go"
+	"time"
+
+	"github.com/coinbase-samples/prime-sdk-go/activities"
+	"github.com/coinbase-samples/prime-sdk-go/client"
+	"github.com/coinbase-samples/prime-sdk-go/transactions"
 	"github.com/coinbase-samples/prime-sweeper-go/model"
 	"github.com/coinbase-samples/prime-sweeper-go/utils"
-	"github.com/google/uuid"
 	"go.uber.org/zap"
-	"time"
 )
 
 const maxWithdrawalGranularity int32 = 8
@@ -40,12 +58,12 @@ func findWalletIdForAsset(config *model.Config, symbol string, direction model.T
 	}
 }
 
-func prepareTransferRequest(client *prime.Client,
+func prepareTransferRequest(client client.RestClient,
 	sourceWalletId string,
 	balance *Balance,
 	config *model.Config,
 	direction model.TransferDirection,
-) (*prime.CreateWalletTransferRequest, error) {
+) (*transactions.CreateWalletTransferRequest, error) {
 
 	destinationWalletId, err := findWalletIdForAsset(config, balance.Symbol, direction)
 	if err != nil {
@@ -54,19 +72,19 @@ func prepareTransferRequest(client *prime.Client,
 
 	cappedAmount := balance.WithdrawableAmount.Truncate(maxWithdrawalGranularity)
 
-	request := prime.CreateWalletTransferRequest{
-		PortfolioId:         client.Credentials.PortfolioId,
+	request := &transactions.CreateWalletTransferRequest{
+		PortfolioId:         client.Credentials().PortfolioId,
 		SourceWalletId:      sourceWalletId,
 		Symbol:              balance.Symbol,
 		DestinationWalletId: destinationWalletId,
-		IdempotencyKey:      uuid.New().String(),
+		IdempotencyKey:      utils.NewUuid(),
 		Amount:              cappedAmount.String(),
 	}
 
-	return &request, nil
+	return request, nil
 }
 
-func logAndTrackTransfer(response *prime.CreateWalletTransferResponse,
+func logAndTrackTransfer(response *transactions.CreateWalletTransferResponse,
 	config *model.Config,
 	sourceWalletId string,
 	destinationWalletId string,
@@ -96,6 +114,8 @@ func InitiateTransfers(
 		return err
 	}
 
+	svc := transactions.NewTransactionsService(client)
+
 	for walletId, balance := range walletsMap {
 		zap.L().Info("found wallet balance",
 			zap.String("wallet_id", walletId),
@@ -116,7 +136,7 @@ func InitiateTransfers(
 			continue
 		}
 
-		response, err := client.CreateWalletTransfer(ctx, request)
+		response, err := svc.CreateWalletTransfer(ctx, request)
 		cancel()
 		if err != nil {
 			zap.L().Error("could not create transfer",
@@ -135,15 +155,17 @@ func InitiateTransfers(
 }
 
 func logTransactionStatus(
-	client *prime.Client,
+	client client.RestClient,
 	ctx context.Context,
 	transactionId,
 	lastStatus,
 	operationId string,
 ) (string, error) {
 
-	transactionResp, err := client.GetTransaction(ctx, &prime.GetTransactionRequest{
-		PortfolioId:   client.Credentials.PortfolioId,
+	svc := transactions.NewTransactionsService(client)
+
+	transactionResp, err := svc.GetTransaction(ctx, &transactions.GetTransactionRequest{
+		PortfolioId:   client.Credentials().PortfolioId,
 		TransactionId: transactionId,
 	})
 	if err != nil {
@@ -177,8 +199,10 @@ func trackTransaction(activityId string, config *model.Config, approvalUrl, oper
 	ctx, cancel := context.WithTimeout(context.Background(), config.Daemon.TransferMonitorTimeoutDuration*time.Minute)
 	defer cancel()
 
-	activityResp, err := client.GetActivity(ctx, &prime.GetActivityRequest{
-		PortfolioId: client.Credentials.PortfolioId,
+	activitiesSvc := activities.NewActivitiesService(client)
+
+	activityResp, err := activitiesSvc.GetActivity(ctx, &activities.GetActivityRequest{
+		PortfolioId: client.Credentials().PortfolioId,
 		Id:          activityId,
 	})
 	if err != nil {

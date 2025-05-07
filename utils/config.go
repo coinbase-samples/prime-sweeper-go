@@ -1,12 +1,29 @@
+/**
+ * Copyright 2024-present Coinbase Global, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package utils
 
 import (
 	"fmt"
-	"github.com/coinbase-samples/prime-sdk-go"
+	"os"
+
+	"github.com/coinbase-samples/prime-sdk-go/wallets"
 	"github.com/coinbase-samples/prime-sweeper-go/model"
 	"github.com/go-yaml/yaml"
 	"go.uber.org/zap"
-	"os"
 )
 
 func ReadConfig(filename string) (*model.Config, error) {
@@ -86,15 +103,17 @@ func validateColdWallets(config *model.Config) error {
 		return fmt.Errorf("cannot get client from environment %w", err)
 	}
 
+	svc := wallets.NewWalletsService(client)
+
 	for _, walletConfig := range config.Wallets {
 		ctx, cancel := GetContextWithTimeout(config)
 
-		request := &prime.GetWalletRequest{
-			PortfolioId: client.Credentials.PortfolioId,
+		request := &wallets.GetWalletRequest{
+			PortfolioId: client.Credentials().PortfolioId,
 			Id:          walletConfig.WalletId,
 		}
 
-		response, err := client.GetWallet(ctx, request)
+		response, err := svc.GetWallet(ctx, request)
 		cancel()
 		if err != nil {
 			zap.L().Error("cannot get wallet", zap.String("wallet", walletConfig.Name), zap.Error(err))
